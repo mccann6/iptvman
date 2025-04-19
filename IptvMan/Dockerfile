@@ -4,8 +4,10 @@ WORKDIR /app
 EXPOSE 8080
 EXPOSE 8081
 
-# add accounts here, Name;Host|Name2;Host2
+# add accounts here, Name;Host|Name2;Host2, semi colon separated
 #ENV IPTV_ACCOUNTS="Sample;http://www.sample.com/|Sample2;http://www.sample2.com/"
+# add filters for categories to keep if needed, semi colon separated
+#ENV CATEGORY_FILTERS="UK|;US|;UK |;US |;USA|;USA |;PPV "
 
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 ARG BUILD_CONFIGURATION=Release

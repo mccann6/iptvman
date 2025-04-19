@@ -9,7 +9,8 @@ public static class Configuration
         Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER").Equals("true", StringComparison.InvariantCultureIgnoreCase) ||
         Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER").Equals("1", StringComparison.InvariantCultureIgnoreCase);
     public static List<Account> Accounts => GetAccounts();
-    public static string AppDataDirectory => IsContainer ? "/iptv" :
+    public static List<string> Filters => GetFilters();
+    public static string AppDataDirectory => IsContainer ? "/app" :
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), ApplicationName);
 
 
@@ -22,5 +23,11 @@ public static class Configuration
             .Select(accountSettings => accountSettings.Split(";"))
             .Select(splitSettings =>
                 new Account(splitSettings[0], splitSettings[1])).ToList();
+    }
+
+    private static List<string> GetFilters()
+    {
+        var filters = Environment.GetEnvironmentVariable("CATEGORY_FILTERS") ?? "";
+        return filters.Split(';').ToList();
     }
 }

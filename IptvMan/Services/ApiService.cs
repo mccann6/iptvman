@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json;
 using IptvMan.Clients;
 using IptvMan.Models;
@@ -47,11 +48,16 @@ public class ApiService : IApiService
 
         if (exists)
         {
+            _logger.LogInformation("Current EPG File already exists for {Id}", id);
             return await File.ReadAllBytesAsync(GetEpgFilePath(id));
         }
 
         var response = await _xtreamClient.GetFullXmlEpg(account.Host, username, password);
-        await SaveEpgFile(id, response);
+        var fileText = Encoding.UTF8.GetString(response);
+        var cleanedFileText = fileText.Substring(0, fileText.LastIndexOf("</tv>", StringComparison.Ordinal) + 5);
+        var fileBytes = Encoding.UTF8.GetBytes(cleanedFileText);
+        
+        await SaveEpgFile(id, fileBytes);
         return response;
     }
 
@@ -69,6 +75,7 @@ public class ApiService : IApiService
         var pathToWrite = Configuration.AppDataDirectory;
         Directory.CreateDirectory(pathToWrite);
         await File.WriteAllBytesAsync(GetEpgFilePath(id), fileBytes);
+        _logger.LogInformation("New EPG File saved for {Id}", id);
     }
     
     private async Task<string> GetAccountInfo(string id, string username, string password)
@@ -82,7 +89,7 @@ public class ApiService : IApiService
     {
         var account = GetAccount(id);
         var response = await _xtreamClient.GetVodCategories(account.Host, username, password);
-        return JsonSerializer.Serialize(response);
+        return JsonSerializer.Serialize(ApplyFilters(response));
     }
 
     private async Task<string> GetLiveStreams(string id, string username, string password, string? categoryId = null)
@@ -96,14 +103,14 @@ public class ApiService : IApiService
     {
         var account = GetAccount(id);
         var response = await _xtreamClient.GetLiveCategories(account.Host, username, password);
-        return JsonSerializer.Serialize(response);
+        return JsonSerializer.Serialize(ApplyFilters(response));
     }
     
     private async Task<string> GetSeriesCategories(string id, string username, string password)
     {
         var account = GetAccount(id);
         var response = await _xtreamClient.GetSeriesCategories(account.Host, username, password);
-        return JsonSerializer.Serialize(response);
+        return JsonSerializer.Serialize(ApplyFilters(response));
     }
     
     private async Task<string> GetVodStreams(string id, string username, string password, string? categoryId = null)
@@ -135,4 +142,9 @@ public class ApiService : IApiService
     }
 
     private static Account GetAccount(string id) => Configuration.Accounts.First(x => x.Id == id);
+
+    private static List<Category> ApplyFilters(List<Category> categories)
+    {
+        return categories.Where(x => Configuration.Filters.Any(y => x.Name.Contains(y))).ToList();
+    }
 }
