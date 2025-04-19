@@ -4,6 +4,7 @@ namespace IptvMan.Clients;
 
 public interface IXtreamClient
 {
+    Task<AccountInfo> GetAccountInfo(string host, string username, string password);
     Task<List<LiveStream>> GetLiveStreams(string host, string username, string password, string? categoryId = null);
     Task<List<Category>> GetLiveCategories(string host, string username, string password);
     Task<List<VodStream>> GetVodStreams(string host, string username, string password, string? categoryId = null);

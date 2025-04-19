@@ -17,6 +17,11 @@ public class XtreamClient(HttpClient httpClient, IMemoryCache memoryCache)
     private const string GetShortEpgAction = "get_short_epg";
     private const string GetFullEpgAction = "get_simple_data_table";
 
+    public Task<AccountInfo> GetAccountInfo(string host, string username, string password)
+    {
+        return DoCachedHttpCall<AccountInfo>(host, $"/{PlayerApi}?username={username}&password={password}");
+    }
+
     public Task<List<LiveStream>> GetLiveStreams(string host, string username, string password, string? categoryId = null)
     {
         var resource = string.IsNullOrWhiteSpace(categoryId)

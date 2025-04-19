@@ -1,4 +1,3 @@
-using System.Text;
 using System.Text.Json;
 using IptvMan.Clients;
 using IptvMan.Models;
@@ -18,33 +17,27 @@ public class ApiService : IApiService
 
     public async Task<string> DoPlayerApiCall(
         string id,
-        string action, 
+        string? action, 
         string username, 
         string password, 
-        string? categoryId = null,
-        string? streamId = null)
+        string? categoryId,
+        string? streamId)
     {
-        switch (action)
+        if (action == null)
+            return await GetAccountInfo(id, username, password);
+        
+        return action switch
         {
-            case "get_live_streams":
-                 return await GetLiveStreams(id, username, password, categoryId);
-            case "get_live_categories":
-                return await GetLiveCategories(id, username, password);
-            case "get_vod_categories":
-                return await GetVodCategories(id, username, password);
-            case "get_series_categories":
-                return await GetSeriesCategories(id, username, password);
-            case "get_vod_streams":
-                return await GetVodStreams(id, username, password, categoryId);
-            case "get_series":
-                return await GetSeriesStreams(id, username, password, categoryId);
-            case "get_simple_data_table":
-                return await GetFullEpgListings(id, username, password, streamId);
-            case "get_short_epg":
-                return await GetShortEpgListings(id, username, password, streamId);
-            default:
-                throw new NotImplementedException($"Action '{action}' is not implemented.");
-        }
+            "get_live_streams" => await GetLiveStreams(id, username, password, categoryId),
+            "get_live_categories" => await GetLiveCategories(id, username, password),
+            "get_vod_categories" => await GetVodCategories(id, username, password),
+            "get_series_categories" => await GetSeriesCategories(id, username, password),
+            "get_vod_streams" => await GetVodStreams(id, username, password, categoryId),
+            "get_series" => await GetSeriesStreams(id, username, password, categoryId),
+            "get_simple_data_table" => await GetFullEpgListings(id, username, password, streamId),
+            "get_short_epg" => await GetShortEpgListings(id, username, password, streamId),
+            _ => throw new NotImplementedException($"Action '{action}' is not implemented.")
+        };
     }
 
     public async Task<byte[]> DoEpgApiCall(string id, string username, string password)
@@ -76,6 +69,13 @@ public class ApiService : IApiService
         var pathToWrite = Configuration.AppDataDirectory;
         Directory.CreateDirectory(pathToWrite);
         await File.WriteAllBytesAsync(GetEpgFilePath(id), fileBytes);
+    }
+    
+    private async Task<string> GetAccountInfo(string id, string username, string password)
+    {
+        var account = GetAccount(id);
+        var response = await _xtreamClient.GetAccountInfo(account.Host, username, password);
+        return JsonSerializer.Serialize(response);
     }
 
     private async Task<string> GetVodCategories(string id, string username, string password)

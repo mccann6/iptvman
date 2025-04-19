@@ -12,7 +12,7 @@ public class PlayerApiProxyController(IApiService apiService, ILogger<PlayerApiP
         string id,
         [FromQuery] string username, 
         [FromQuery] string password, 
-        [FromQuery] string action, 
+        [FromQuery] string action=null, 
         [FromQuery] string category_id=null,
         [FromQuery] string stream_id=null)
     {
