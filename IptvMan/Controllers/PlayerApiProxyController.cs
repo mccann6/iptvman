@@ -7,7 +7,7 @@ namespace IptvMan.Controllers;
 [Route("{id}/player_api.php")]
 public class PlayerApiProxyController(IApiService apiService, ILogger<PlayerApiProxyController> logger) : ControllerBase
 {
-    [HttpGet(Name = "get_player_api.php")]
+    [HttpGet(Name = "PlayerApiGet")]
     public async Task<IActionResult> Get(
         string id,
         [FromQuery] string username, 

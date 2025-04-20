@@ -8,7 +8,7 @@ namespace IptvMan.Controllers;
 [Route("{id}/xmltv.php")]
 public class EpgProxyController(IApiService apiService, ILogger<PlayerApiProxyController> logger) : ControllerBase
 {
-    [HttpGet(Name = "get_xmltv.php")]
+    [HttpGet(Name = "EpgGet")]
     public async Task<IActionResult> Get(
         string id,
         [FromQuery] string username, 

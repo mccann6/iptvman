@@ -8,6 +8,7 @@ public class XtreamClient(HttpClient httpClient, IMemoryCache memoryCache)
 {
     private const string PlayerApi = "player_api.php";
     private const string EpgApi = "xmltv.php";
+    private const string M3uApi = "get.php";
     private const string GetLiveCategoriesAction = "get_live_categories";
     private const string GetVodCategoriesAction = "get_vod_categories";
     private const string GetLiveStreamsAction = "get_live_streams";
@@ -74,5 +75,10 @@ public class XtreamClient(HttpClient httpClient, IMemoryCache memoryCache)
     public Task<byte[]> GetFullXmlEpg(string host, string username, string password)
     {
         return DoHttpGetBytes($"{host}/{EpgApi}?username={username}&password={password}");
+    }
+    
+    public Task<byte[]> GetFullM3u(string host, string username, string password, string output, string type)
+    {
+        return DoHttpGetBytes($"{host}/{M3uApi}?username={username}&password={password}&output={output}&type={type}");
     }
 }

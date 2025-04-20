@@ -14,4 +14,11 @@ public interface IApiService
         string id,
         string username,
         string password);
+    
+    Task<byte[]> DoM3uApiCall(
+        string id,
+        string username,
+        string password,
+        string output,
+        string type);
 }

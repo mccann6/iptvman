@@ -58,27 +58,26 @@ public class ApiService : IApiService
         var fileBytes = Encoding.UTF8.GetBytes(cleanedFileText);
         
         await SaveEpgFile(id, fileBytes);
+        return fileBytes;
+    }
+
+    public async Task<byte[]> DoM3uApiCall(string id, string username, string password, string output, string type)
+    {
+        var account = GetAccount(id);
+        var exists = CurrentM3uFileExists(id);
+
+        if (exists)
+        {
+            _logger.LogInformation("Current M3u File already exists for {Id}", id);
+            return await File.ReadAllBytesAsync(GetM3uFilePath(id));
+        }
+        
+        var response = await _xtreamClient.GetFullM3u(account.Host, username, password, output, type);
+        await SaveM3uFile(id, response);
         return response;
     }
-
-    private string GetEpgFilePath(string id) => Path.Combine(Configuration.AppDataDirectory, $"{id}.xml");
-
-    private bool CurrentEpgFileExists(string id)
-    {
-        var filePath = GetEpgFilePath(id);
-        if (!File.Exists(filePath)) return false;
-        return DateTime.UtcNow - File.GetCreationTimeUtc(filePath) < TimeSpan.FromDays(1);
-    }
-
-    private async Task SaveEpgFile(string id, byte[] fileBytes)
-    {
-        var pathToWrite = Configuration.AppDataDirectory;
-        Directory.CreateDirectory(pathToWrite);
-        await File.WriteAllBytesAsync(GetEpgFilePath(id), fileBytes);
-        _logger.LogInformation("New EPG File saved for {Id}", id);
-    }
     
-    private async Task<string> GetAccountInfo(string id, string username, string password)
+        private async Task<string> GetAccountInfo(string id, string username, string password)
     {
         var account = GetAccount(id);
         var response = await _xtreamClient.GetAccountInfo(account.Host, username, password);
@@ -96,7 +95,7 @@ public class ApiService : IApiService
     {
         var account = GetAccount(id);
         var response = await _xtreamClient.GetLiveStreams(account.Host, username, password, categoryId);
-        return JsonSerializer.Serialize(response);
+        return JsonSerializer.Serialize(ApplyFilters(response));
     }
     
     private async Task<string> GetLiveCategories(string id, string username, string password)
@@ -117,7 +116,7 @@ public class ApiService : IApiService
     {
         var account = GetAccount(id);
         var response = await _xtreamClient.GetVodStreams(account.Host, username, password, categoryId);
-        return JsonSerializer.Serialize(response);
+        return JsonSerializer.Serialize(ApplyFilters(response));
     }
     
     private async Task<string> GetSeriesStreams(string id, string username, string password, string? categoryId = null)
@@ -141,10 +140,55 @@ public class ApiService : IApiService
         return JsonSerializer.Serialize(response);
     }
 
-    private static Account GetAccount(string id) => Configuration.Accounts.First(x => x.Id == id);
+    private string GetEpgFilePath(string id) => Path.Combine(Configuration.AppDataDirectory, $"{id}.xml");
+    private string GetM3uFilePath(string id) => Path.Combine(Configuration.AppDataDirectory, $"{id}.m3u");
+    
+    private bool CurrentEpgFileExists(string id)
+    {
+        var filePath = GetEpgFilePath(id);
+        if (!File.Exists(filePath)) return false;
+        return DateTime.UtcNow - File.GetCreationTimeUtc(filePath) < TimeSpan.FromMinutes(Configuration.EpgTime);
+    }
+    
+    private bool CurrentM3uFileExists(string id)
+    {
+        var filePath = GetM3uFilePath(id);
+        if (!File.Exists(filePath)) return false;
+        return DateTime.UtcNow - File.GetCreationTimeUtc(filePath) < TimeSpan.FromMinutes(Configuration.M3uTime);
+    }
+
+    private async Task SaveEpgFile(string id, byte[] fileBytes)
+    {
+        var pathToWrite = Configuration.AppDataDirectory;
+        Directory.CreateDirectory(pathToWrite);
+        await File.WriteAllBytesAsync(GetEpgFilePath(id), fileBytes);
+        _logger.LogInformation("New EPG File saved for {Id}", id);
+    }
+    
+    private async Task SaveM3uFile(string id, byte[] fileBytes)
+    {
+        var pathToWrite = Configuration.AppDataDirectory;
+        Directory.CreateDirectory(pathToWrite);
+        await File.WriteAllBytesAsync(GetM3uFilePath(id), fileBytes);
+        _logger.LogInformation("New M3U File saved for {Id}", id);
+    }
+
+    private static Account GetAccount(string id) => Configuration.Accounts.First(x => x.Id.Equals(id, StringComparison.InvariantCultureIgnoreCase));
 
     private static List<Category> ApplyFilters(List<Category> categories)
     {
-        return categories.Where(x => Configuration.Filters.Any(y => x.Name.Contains(y))).ToList();
+        if (Configuration.AdultFilter)
+            categories = categories.Where(x =>
+                x.Name != null && !x.Name.Contains("adult", StringComparison.InvariantCultureIgnoreCase)).ToList();
+        return categories.Where(x => Configuration.CategoryFilters.Any(y => x.Name != null && x.Name.Contains(y)))
+            .ToList();
     }
+
+    private static List<LiveStream> ApplyFilters(List<LiveStream> liveStreams) => Configuration.AdultFilter
+        ? liveStreams.Where(x => x.IsAdult != "1" && x.Name != null && !x.Name.Contains("adult", StringComparison.InvariantCultureIgnoreCase)).ToList()
+        : liveStreams;
+    
+    private static List<VodStream> ApplyFilters(List<VodStream> liveStreams) => Configuration.AdultFilter
+        ? liveStreams.Where(x => x.IsAdult != "1" && x.Name != null && !x.Name.Contains("adult", StringComparison.InvariantCultureIgnoreCase)).ToList()
+        : liveStreams;
 }

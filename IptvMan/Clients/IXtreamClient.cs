@@ -14,4 +14,5 @@ public interface IXtreamClient
     Task<EpgListings> GetFullEpgListings(string host, string username, string password, string streamId);
     Task<EpgListings> GetShortEpgListings(string host, string username, string password, string streamId);
     Task<byte[]> GetFullXmlEpg(string host, string username, string password);
+    Task<byte[]> GetFullM3u(string host, string username, string password, string output, string type);
 }
