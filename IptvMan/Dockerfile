@@ -4,13 +4,6 @@ WORKDIR /app
 EXPOSE 8080
 EXPOSE 8081
 
-ENV IPTV_ACCOUNTS="AccountName;https://account.host.com/"
-ENV CATEGORY_FILTERS="UK|;US|;UK |;US |;USA|;USA |;PPV "
-ENV ADULT_FILTER="true"
-ENV CACHE_TIME="60"
-ENV EPG_TIME="1440"
-ENV M3U_TIME="720"
-
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
