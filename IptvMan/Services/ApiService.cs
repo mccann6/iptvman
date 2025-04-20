@@ -81,7 +81,7 @@ public class ApiService : IApiService
         return response;
     }
     
-        private async Task<string> GetAccountInfo(string id, string username, string password)
+    private async Task<string> GetAccountInfo(string id, string username, string password)
     {
         var account = GetAccount(id);
         var response = await _xtreamClient.GetAccountInfo(account.Host, username, password);
@@ -99,6 +99,15 @@ public class ApiService : IApiService
     {
         var account = GetAccount(id);
         var response = await _xtreamClient.GetLiveStreams(account.Host, username, password, categoryId);
+
+        if (categoryId == null)
+        {
+            _logger.LogInformation("Calling LiveStreams without any filter, getting categories to filter by filtered categories");
+            var categories = await _xtreamClient.GetLiveCategories(account.Host, username, password);
+            categories = ApplyFilters(categories);
+            return JsonSerializer.Serialize(ApplyFilters(response, categories.Select(x=>x.Id.ToString()).ToList()));
+        }
+        
         return JsonSerializer.Serialize(ApplyFilters(response));
     }
     
@@ -120,6 +129,15 @@ public class ApiService : IApiService
     {
         var account = GetAccount(id);
         var response = await _xtreamClient.GetVodStreams(account.Host, username, password, categoryId);
+        
+        if (categoryId == null)
+        {
+            _logger.LogInformation("Calling VodStreams without any filter, getting categories to filter by filtered categories");
+            var categories = await _xtreamClient.GetVodCategories(account.Host, username, password);
+            categories = ApplyFilters(categories);
+            return JsonSerializer.Serialize(ApplyFilters(response, categories.Select(x=>x.Id.ToString()).ToList()));
+        }
+        
         return JsonSerializer.Serialize(ApplyFilters(response));
     }
     
@@ -127,6 +145,15 @@ public class ApiService : IApiService
     {
         var account = GetAccount(id);
         var response = await _xtreamClient.GetSeriesStreams(account.Host, username, password, categoryId);
+        
+        if (categoryId == null)
+        {
+            _logger.LogInformation("Calling SeriesStreams without any filter, getting categories to filter by filtered categories");
+            var categories = await _xtreamClient.GetSeriesCategories(account.Host, username, password);
+            categories = ApplyFilters(categories);
+            return JsonSerializer.Serialize(ApplyFilters(response, categories.Select(x=>x.Id.ToString()).ToList()));
+        }
+        
         return JsonSerializer.Serialize(response);
     }
     
@@ -206,6 +233,31 @@ public class ApiService : IApiService
         ? liveStreams.Where(x => x.IsAdult != "1" && x.Name != null && !x.Name.Contains("adult", StringComparison.InvariantCultureIgnoreCase)).ToList()
         : liveStreams;
     
+    private static List<LiveStream> ApplyFilters(List<LiveStream> liveStreams, List<string> categoryIds)
+    {
+        return Configuration.AdultFilter
+            ? liveStreams.Where(x =>
+                x.IsAdult != "1" && x.Name != null &&
+                !x.Name.Contains("adult", StringComparison.InvariantCultureIgnoreCase) &&
+                categoryIds.Contains(x.CategoryId)).ToList()
+            : liveStreams.Where(x => categoryIds.Contains(x.CategoryId)).ToList();
+    }
+    
+    private static List<VodStream> ApplyFilters(List<VodStream> vodStreams, List<string> categoryIds)
+    {
+        return Configuration.AdultFilter
+            ? vodStreams.Where(x =>
+                x.IsAdult != "1" && x.Name != null &&
+                !x.Name.Contains("adult", StringComparison.InvariantCultureIgnoreCase) &&
+                categoryIds.Contains(x.CategoryId)).ToList()
+            : vodStreams.Where(x => categoryIds.Contains(x.CategoryId)).ToList();
+    }
+    
+    private static List<SeriesStream> ApplyFilters(List<SeriesStream> seriesStreams, List<string> categoryIds)
+    {
+        return seriesStreams.Where(x => categoryIds.Contains(x.CategoryId)).ToList();
+    }
+
     private static List<VodStream> ApplyFilters(List<VodStream> liveStreams) => Configuration.AdultFilter
         ? liveStreams.Where(x => x.IsAdult != "1" && x.Name != null && !x.Name.Contains("adult", StringComparison.InvariantCultureIgnoreCase)).ToList()
         : liveStreams;
