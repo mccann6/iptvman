@@ -7,8 +7,10 @@ public interface IApiService
         string action,
         string username,
         string password,
-        string? categoryId = null,
-        string? streamId = null);
+        string? categoryId,
+        string? streamId,
+        string? vodId,
+        string? seriesId);
     
     Task<byte[]> DoEpgApiCall(
         string id,

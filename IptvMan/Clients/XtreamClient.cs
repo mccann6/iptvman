@@ -17,6 +17,8 @@ public class XtreamClient(HttpClient httpClient, IMemoryCache memoryCache)
     private const string GetSeriesStreamsAction = "get_series";
     private const string GetShortEpgAction = "get_short_epg";
     private const string GetFullEpgAction = "get_simple_data_table";
+    private const string GetVodInfoAction = "get_vod_info";
+    private const string GetSeriesInfoAction = "get_series_info";
 
     public Task<AccountInfo> GetAccountInfo(string host, string username, string password)
     {
@@ -70,6 +72,16 @@ public class XtreamClient(HttpClient httpClient, IMemoryCache memoryCache)
     public Task<EpgListings> GetShortEpgListings(string host, string username, string password, string streamId)
     {
         return DoCachedHttpCall<EpgListings>(host, $"/{PlayerApi}?username={username}&password={password}&action={GetShortEpgAction}&stream_id={streamId}");
+    }
+
+    public Task<object> GetVodInfo(string host, string username, string password, string vodId)
+    {
+        return DoCachedHttpCall<object>(host, $"/{PlayerApi}?username={username}&password={password}&action={GetVodInfoAction}&vod_id={vodId}");
+    }
+
+    public Task<object> GetSeriesInfo(string host, string username, string password, string seriesId)
+    {
+        return DoCachedHttpCall<object>(host, $"/{PlayerApi}?username={username}&password={password}&action={GetSeriesInfoAction}&series_id={seriesId}");
     }
 
     public Task<byte[]> GetFullXmlEpg(string host, string username, string password)

@@ -14,11 +14,13 @@ public class PlayerApiProxyController(IApiService apiService, ILogger<PlayerApiP
         [FromQuery] string password, 
         [FromQuery] string action=null, 
         [FromQuery] string category_id=null,
-        [FromQuery] string stream_id=null)
+        [FromQuery] string stream_id=null,
+        [FromQuery] string vod_id=null,
+        [FromQuery] string series_id=null)
     {
         try
         {
-            var response = await apiService.DoPlayerApiCall(id, action, username, password, category_id, stream_id);
+            var response = await apiService.DoPlayerApiCall(id, action, username, password, category_id, stream_id, vod_id, series_id);
             return Ok(response);
         }
         catch (Exception ex)

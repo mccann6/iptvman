@@ -22,7 +22,9 @@ public class ApiService : IApiService
         string username, 
         string password, 
         string? categoryId,
-        string? streamId)
+        string? streamId,
+        string? vodId,
+        string? seriesId)
     {
         if (action == null)
             return await GetAccountInfo(id, username, password);
@@ -37,6 +39,8 @@ public class ApiService : IApiService
             "get_series" => await GetSeriesStreams(id, username, password, categoryId),
             "get_simple_data_table" => await GetFullEpgListings(id, username, password, streamId),
             "get_short_epg" => await GetShortEpgListings(id, username, password, streamId),
+            "get_vod_info" => await GetVodInfo(id, username, password, vodId),
+            "get_series_info" => await GetSeriesInfo(id, username, password, seriesId),
             _ => throw new NotImplementedException($"Action '{action}' is not implemented.")
         };
     }
@@ -137,6 +141,20 @@ public class ApiService : IApiService
     {
         var account = GetAccount(id);
         var response = await _xtreamClient.GetShortEpgListings(account.Host, username, password, streamId);
+        return JsonSerializer.Serialize(response);
+    }
+    
+    private async Task<string> GetVodInfo(string id, string username, string password, string vodId)
+    {
+        var account = GetAccount(id);
+        var response = await _xtreamClient.GetVodInfo(account.Host, username, password, vodId);
+        return JsonSerializer.Serialize(response);
+    }
+    
+    private async Task<string> GetSeriesInfo(string id, string username, string password, string seriesId)
+    {
+        var account = GetAccount(id);
+        var response = await _xtreamClient.GetSeriesInfo(account.Host, username, password, seriesId);
         return JsonSerializer.Serialize(response);
     }
 
