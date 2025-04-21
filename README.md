@@ -8,7 +8,7 @@ Pull the latest image from https://hub.docker.com/r/anthonymccann90/iptvman
 
 Include at least the following ENV
 ```
-ENV="AccountName;http://www.account.com|AccountName2;http://www.account2.com"
+ENV IPTV_ACCOUNTS="AccountName;http://www.account.com|AccountName2;http://www.account2.com"
 ```
 
 Your accounts will be available using
@@ -19,13 +19,13 @@ Your accounts will be available using
 Other available ENVs
 ```
 # comma separated values, keep only categorys that contain in category name
-CATEGORY_FILTERS="UK|, US|"
+ENV CATEGORY_FILTERS="UK|, US|"
 # filter out adult channels
-ADULT_FILTER="true"
+ENV ADULT_FILTER="true"
 # time in minutes to cache api calls
-CACHE_TIME="60"
+ENV CACHE_TIME="60"
 time in minutes to cache epg xml file
-EPG_TIME="1440"
+ENV EPG_TIME="1440"
 time in minutes to cache m3u file
-M3U_TIME="720"
+ENV M3U_TIME="720"
 ```
