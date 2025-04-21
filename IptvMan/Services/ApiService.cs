@@ -29,6 +29,8 @@ public class ApiService : IApiService
         if (action == null)
             return await GetAccountInfo(id, username, password);
         
+        _logger.LogInformation("Call made to action {Action} for account {Id}", action, id);
+        
         return action switch
         {
             "get_live_streams" => await GetLiveStreams(id, username, password, categoryId),
@@ -80,7 +82,13 @@ public class ApiService : IApiService
         await SaveM3uFile(id, response);
         return response;
     }
-    
+
+    public string GetStreamUrl(string id, string type, string username, string password, string stream)
+    {
+        var account = GetAccount(id);
+        return $"{account.Host}/{type}/{username}/{password}/{stream}";
+    }
+
     private async Task<string> GetAccountInfo(string id, string username, string password)
     {
         var account = GetAccount(id);
@@ -100,9 +108,9 @@ public class ApiService : IApiService
         var account = GetAccount(id);
         var response = await _xtreamClient.GetLiveStreams(account.Host, username, password, categoryId);
 
-        if (categoryId == null)
+        if (categoryId == null && Configuration.CategoryFilters.Count != 0)
         {
-            _logger.LogInformation("Calling LiveStreams without any filter, getting categories to filter by filtered categories");
+            _logger.LogInformation("Called LiveStreams without categoryId, getting categories to filter by filtered categories");
             var categories = await _xtreamClient.GetLiveCategories(account.Host, username, password);
             categories = ApplyFilters(categories);
             return JsonSerializer.Serialize(ApplyFilters(response, categories.Select(x=>x.Id.ToString()).ToList()));
@@ -130,9 +138,9 @@ public class ApiService : IApiService
         var account = GetAccount(id);
         var response = await _xtreamClient.GetVodStreams(account.Host, username, password, categoryId);
         
-        if (categoryId == null)
+        if (categoryId == null && Configuration.CategoryFilters.Count != 0)
         {
-            _logger.LogInformation("Calling VodStreams without any filter, getting categories to filter by filtered categories");
+            _logger.LogInformation("Called VodStreams without categoryId, getting categories to filter by filtered categories");
             var categories = await _xtreamClient.GetVodCategories(account.Host, username, password);
             categories = ApplyFilters(categories);
             return JsonSerializer.Serialize(ApplyFilters(response, categories.Select(x=>x.Id.ToString()).ToList()));
@@ -146,9 +154,9 @@ public class ApiService : IApiService
         var account = GetAccount(id);
         var response = await _xtreamClient.GetSeriesStreams(account.Host, username, password, categoryId);
         
-        if (categoryId == null)
+        if (categoryId == null && Configuration.CategoryFilters.Count != 0)
         {
-            _logger.LogInformation("Calling SeriesStreams without any filter, getting categories to filter by filtered categories");
+            _logger.LogInformation("Called SeriesStreams without categoryId, getting categories to filter by filtered categories");
             var categories = await _xtreamClient.GetSeriesCategories(account.Host, username, password);
             categories = ApplyFilters(categories);
             return JsonSerializer.Serialize(ApplyFilters(response, categories.Select(x=>x.Id.ToString()).ToList()));

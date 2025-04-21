@@ -23,4 +23,11 @@ public interface IApiService
         string password,
         string output,
         string type);
+
+    string GetStreamUrl(
+        string id,
+        string type,
+        string username,
+        string password,
+        string stream);
 }
