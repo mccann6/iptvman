@@ -18,8 +18,8 @@ Your accounts will be available using
 
 Other available ENVs
 ```
-# comma separated values, keep only categorys that contain in category name
-ENV CATEGORY_FILTERS="UK|, US|"
+# semi colon separated values, keep only categorys that contain in category name
+ENV CATEGORY_FILTERS="UK|; US|"
 # filter out adult channels
 ENV ADULT_FILTER="true"
 # time in minutes to cache api calls
