@@ -11,6 +11,11 @@ Include at least the following ENV
 ENV="AccountName;http://www.account.com|AccountName2;http://www.account2.com"
 ```
 
+Your accounts will be available using
+- Host: localhost:port/AccountName
+- Username: Your Account Username
+- Password: Your Account Password
+
 Other available ENVs
 ```
 # comma separated values, keep only categorys that contain in category name
