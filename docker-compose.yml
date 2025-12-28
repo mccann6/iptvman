@@ -1,0 +1,17 @@
+services:
+  iptvman:
+    build: .
+    container_name: iptvman
+    ports:
+      - "8080:8080"
+    environment:
+      # Cache time in minutes (default: 60)
+      - CACHE_TIME=60
+      # EPG cache time in minutes (default: 1440 = 24 hours)
+      - EPG_TIME=1440
+      # M3U cache time in minutes (default: 720 = 12 hours)
+      - M3U_TIME=720
+    volumes:
+      # Persist the database and application data in local ./data folder
+      - ./data:/app/data
+    restart: unless-stopped

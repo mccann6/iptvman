@@ -10,8 +10,8 @@ public class PlayerApiProxyController(IApiService apiService, ILogger<PlayerApiP
     [HttpGet(Name = "PlayerApiGet")]
     public async Task<IActionResult> Get(
         string id,
-        [FromQuery] string username, 
-        [FromQuery] string password, 
+        [FromQuery] string? username, 
+        [FromQuery] string? password, 
         [FromQuery] string action=null, 
         [FromQuery] string category_id=null,
         [FromQuery] string stream_id=null,

@@ -7,8 +7,7 @@
       "launchBrowser": false,
       "applicationUrl": "http://localhost:5286",
       "environmentVariables": {
-        "ASPNETCORE_ENVIRONMENT": "Development",
-        "IPTV_ACCOUNTS": "Test1;http://www.test1.com/|Test2;http://www.test2.com/"
+        "ASPNETCORE_ENVIRONMENT": "Development"
       }
     },
     "https": {

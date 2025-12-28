@@ -19,7 +19,7 @@ public class LiveStream
     [JsonPropertyName("added")]
     public string? Added { get; set; }
     [JsonPropertyName("is_adult")]
-    public string? IsAdult { get; set; }
+    public dynamic? IsAdult { get; set; }
     [JsonPropertyName("category_id")]
     public string? CategoryId { get; set; }
     [JsonPropertyName("custom_sid")]
