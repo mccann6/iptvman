@@ -26,7 +26,8 @@ public class ApiService : IApiService
         string? categoryId,
         string? streamId,
         string? vodId,
-        string? seriesId)
+        string? seriesId,
+        bool? bypassFilters = null)
     {
         var account = GetAccount(id);
         var user = !string.IsNullOrEmpty(account.Username) ? account.Username : username;
@@ -42,12 +43,12 @@ public class ApiService : IApiService
         
         return action switch
         {
-            "get_live_streams" => await GetLiveStreams(account, user, pass, categoryId),
-            "get_live_categories" => await GetLiveCategories(account, user, pass),
-            "get_vod_categories" => await GetVodCategories(account, user, pass),
-            "get_series_categories" => await GetSeriesCategories(account, user, pass),
-            "get_vod_streams" => await GetVodStreams(account, user, pass, categoryId),
-            "get_series" => await GetSeriesStreams(account, user, pass, categoryId),
+            "get_live_streams" => await GetLiveStreams(account, user, pass, categoryId, bypassFilters ?? false),
+            "get_live_categories" => await GetLiveCategories(account, user, pass, bypassFilters ?? false),
+            "get_vod_categories" => await GetVodCategories(account, user, pass, bypassFilters ?? false),
+            "get_series_categories" => await GetSeriesCategories(account, user, pass, bypassFilters ?? false),
+            "get_vod_streams" => await GetVodStreams(account, user, pass, categoryId, bypassFilters ?? false),
+            "get_series" => await GetSeriesStreams(account, user, pass, categoryId, bypassFilters ?? false),
             "get_simple_data_table" => await GetFullEpgListings(account, user, pass, streamId),
             "get_short_epg" => await GetShortEpgListings(account, user, pass, streamId),
             "get_vod_info" => await GetVodInfo(account, user, pass, vodId),
@@ -119,64 +120,79 @@ public class ApiService : IApiService
         return JsonSerializer.Serialize(response);
     }
 
-    private async Task<string> GetVodCategories(Account account, string username, string password)
+    private async Task<string> GetVodCategories(Account account, string username, string password, bool bypassFilters = false)
     {
         var response = await _xtreamClient.GetVodCategories(account.Host, username, password);
-        return JsonSerializer.Serialize(ApplyFilters(response, account));
+        if (bypassFilters)
+            return JsonSerializer.Serialize(response);
+        return JsonSerializer.Serialize(ApplyVodCategoryFilters(response, account));
     }
 
-    private async Task<string> GetLiveStreams(Account account, string username, string password, string? categoryId = null)
+    private async Task<string> GetLiveStreams(Account account, string username, string password, string? categoryId = null, bool bypassFilters = false)
     {
         var response = await _xtreamClient.GetLiveStreams(account.Host, username, password, categoryId);
 
-        if (categoryId == null && account.FilterSettings.CategoryFilters.Count != 0)
+        if (bypassFilters)
+            return JsonSerializer.Serialize(response);
+
+        if (categoryId == null && account.FilterSettings.AllowedLiveCategoryIds.Count != 0)
         {
-            _logger.LogInformation("Called LiveStreams without categoryId, getting categories to filter by filtered categories");
+            _logger.LogInformation("Called LiveStreams without categoryId, getting categories to filter by allowed categories");
             var categories = await _xtreamClient.GetLiveCategories(account.Host, username, password);
-            categories = ApplyFilters(categories, account);
-            return JsonSerializer.Serialize(ApplyFilters(response, categories.Select(x=>x.Id.ToString()).ToList(), account));
+            categories = ApplyLiveCategoryFilters(categories, account);
+            return JsonSerializer.Serialize(ApplyLiveStreamFilters(response, categories.Where(x => x.Id != null).Select(x=>x.Id!).ToList(), account));
         }
         
-        return JsonSerializer.Serialize(ApplyFilters(response, account));
+        return JsonSerializer.Serialize(ApplyLiveStreamFilters(response, account));
     }
     
-    private async Task<string> GetLiveCategories(Account account, string username, string password)
+    private async Task<string> GetLiveCategories(Account account, string username, string password, bool bypassFilters = false)
     {
         var response = await _xtreamClient.GetLiveCategories(account.Host, username, password);
-        return JsonSerializer.Serialize(ApplyFilters(response, account));
+        if (bypassFilters)
+            return JsonSerializer.Serialize(response);
+        return JsonSerializer.Serialize(ApplyLiveCategoryFilters(response, account));
     }
     
-    private async Task<string> GetSeriesCategories(Account account, string username, string password)
+    private async Task<string> GetSeriesCategories(Account account, string username, string password, bool bypassFilters = false)
     {
         var response = await _xtreamClient.GetSeriesCategories(account.Host, username, password);
-        return JsonSerializer.Serialize(ApplyFilters(response, account));
+        if (bypassFilters)
+            return JsonSerializer.Serialize(response);
+        return JsonSerializer.Serialize(ApplySeriesCategoryFilters(response, account));
     }
     
-    private async Task<string> GetVodStreams(Account account, string username, string password, string? categoryId = null)
+    private async Task<string> GetVodStreams(Account account, string username, string password, string? categoryId = null, bool bypassFilters = false)
     {
         var response = await _xtreamClient.GetVodStreams(account.Host, username, password, categoryId);
         
-        if (categoryId == null && account.FilterSettings.CategoryFilters.Count != 0)
+        if (bypassFilters)
+            return JsonSerializer.Serialize(response);
+        
+        if (categoryId == null && account.FilterSettings.AllowedVodCategoryIds.Count != 0)
         {
-            _logger.LogInformation("Called VodStreams without categoryId, getting categories to filter by filtered categories");
+            _logger.LogInformation("Called VodStreams without categoryId, getting categories to filter by allowed categories");
             var categories = await _xtreamClient.GetVodCategories(account.Host, username, password);
-            categories = ApplyFilters(categories, account);
-            return JsonSerializer.Serialize(ApplyFilters(response, categories.Select(x=>x.Id.ToString()).ToList(), account));
+            categories = ApplyVodCategoryFilters(categories, account);
+            return JsonSerializer.Serialize(ApplyVodStreamFilters(response, categories.Where(x => x.Id != null).Select(x=>x.Id!).ToList(), account));
         }
         
-        return JsonSerializer.Serialize(ApplyFilters(response, account));
+        return JsonSerializer.Serialize(ApplyVodStreamFilters(response, account));
     }
     
-    private async Task<string> GetSeriesStreams(Account account, string username, string password, string? categoryId = null)
+    private async Task<string> GetSeriesStreams(Account account, string username, string password, string? categoryId = null, bool bypassFilters = false)
     {
         var response = await _xtreamClient.GetSeriesStreams(account.Host, username, password, categoryId);
         
-        if (categoryId == null && account.FilterSettings.CategoryFilters.Count != 0)
+        if (bypassFilters)
+            return JsonSerializer.Serialize(response);
+        
+        if (categoryId == null && account.FilterSettings.AllowedSeriesCategoryIds.Count != 0)
         {
-            _logger.LogInformation("Called SeriesStreams without categoryId, getting categories to filter by filtered categories");
+            _logger.LogInformation("Called SeriesStreams without categoryId, getting categories to filter by allowed categories");
             var categories = await _xtreamClient.GetSeriesCategories(account.Host, username, password);
-            categories = ApplyFilters(categories, account);
-            return JsonSerializer.Serialize(ApplyFilters(response, categories.Select(x=>x.Id.ToString()).ToList()));
+            categories = ApplySeriesCategoryFilters(categories, account);
+            return JsonSerializer.Serialize(ApplySeriesStreamFilters(response, categories.Where(x => x.Id != null).Select(x=>x.Id!).ToList()));
         }
         
         return JsonSerializer.Serialize(response);
@@ -241,47 +257,227 @@ public class ApiService : IApiService
     
     private Account GetAccount(string id) => _accountService.GetAccount(id);
 
-    private static List<Category> ApplyFilters(List<Category> categories, Account account)
+    public async Task InitializeCategoriesAsync(string id, string? username, string? password)
+    {
+        var account = GetAccount(id);
+        var user = !string.IsNullOrEmpty(account.Username) ? account.Username : username;
+        var pass = !string.IsNullOrEmpty(account.Password) ? account.Password : password;
+        
+        if (string.IsNullOrEmpty(user) || string.IsNullOrEmpty(pass))
+            throw new ArgumentException("Username and Password are required.");
+
+        _logger.LogInformation("Initializing categories for account {Id}", id);
+        
+        var liveCategories = await _xtreamClient.GetLiveCategories(account.Host, user, pass);
+        var vodCategories = await _xtreamClient.GetVodCategories(account.Host, user, pass);
+        var seriesCategories = await _xtreamClient.GetSeriesCategories(account.Host, user, pass);
+        
+        account.FilterSettings.AllowedLiveCategoryIds = liveCategories
+            .Where(x => x.Id != null)
+            .Select(x => x.Id!)
+            .ToList();
+        
+        account.FilterSettings.AllowedVodCategoryIds = vodCategories
+            .Where(x => x.Id != null)
+            .Select(x => x.Id!)
+            .ToList();
+        
+        account.FilterSettings.AllowedSeriesCategoryIds = seriesCategories
+            .Where(x => x.Id != null)
+            .Select(x => x.Id!)
+            .ToList();
+        
+        _accountService.UpdateAccount(account);
+        _logger.LogInformation("Categories initialized for account {Id}", id);
+    }
+    
+    public async Task<CategoryRefreshResult> RefreshLiveCategoriesAsync(string id, string? username, string? password)
+    {
+        var account = GetAccount(id);
+        var user = !string.IsNullOrEmpty(account.Username) ? account.Username : username;
+        var pass = !string.IsNullOrEmpty(account.Password) ? account.Password : password;
+        
+        if (string.IsNullOrEmpty(user) || string.IsNullOrEmpty(pass))
+            throw new ArgumentException("Username and Password are required.");
+
+        _logger.LogInformation("Refreshing live categories for account {Id}", id);
+        
+        var upstreamCategories = await _xtreamClient.GetLiveCategories(account.Host, user, pass);
+        var upstreamIds = upstreamCategories.Where(x => x.Id != null).Select(x => x.Id!).ToHashSet();
+        
+        var knownIds = account.FilterSettings.AllowedLiveCategoryIds
+            .Union(account.FilterSettings.NotAllowedLiveCategoryIds)
+            .ToHashSet();
+        
+        var newCategoryIds = upstreamIds.Except(knownIds).ToHashSet();
+        var newCategories = upstreamCategories.Where(x => x.Id != null && newCategoryIds.Contains(x.Id)).ToList();
+        
+        account.FilterSettings.AllowedLiveCategoryIds = 
+            account.FilterSettings.AllowedLiveCategoryIds.Where(x => upstreamIds.Contains(x)).ToList();
+        account.FilterSettings.NotAllowedLiveCategoryIds = 
+            account.FilterSettings.NotAllowedLiveCategoryIds.Where(x => upstreamIds.Contains(x)).ToList();
+        
+        if (newCategories.Count > 0 || 
+            account.FilterSettings.AllowedLiveCategoryIds.Count + account.FilterSettings.NotAllowedLiveCategoryIds.Count != knownIds.Count)
+        {
+            _accountService.UpdateAccount(account);
+            _logger.LogInformation("Live categories refreshed for account {Id}. New: {NewCount}, Removed: {RemovedCount}", 
+                id, newCategories.Count, knownIds.Count - upstreamIds.Count);
+        }
+        
+        return new CategoryRefreshResult { NewCategories = newCategories };
+    }
+    
+    public async Task<CategoryRefreshResult> RefreshVodCategoriesAsync(string id, string? username, string? password)
+    {
+        var account = GetAccount(id);
+        var user = !string.IsNullOrEmpty(account.Username) ? account.Username : username;
+        var pass = !string.IsNullOrEmpty(account.Password) ? account.Password : password;
+        
+        if (string.IsNullOrEmpty(user) || string.IsNullOrEmpty(pass))
+            throw new ArgumentException("Username and Password are required.");
+
+        _logger.LogInformation("Refreshing VOD categories for account {Id}", id);
+        
+        var upstreamCategories = await _xtreamClient.GetVodCategories(account.Host, user, pass);
+        var upstreamIds = upstreamCategories.Where(x => x.Id != null).Select(x => x.Id!).ToHashSet();
+        
+        var knownIds = account.FilterSettings.AllowedVodCategoryIds
+            .Union(account.FilterSettings.NotAllowedVodCategoryIds)
+            .ToHashSet();
+        
+        var newCategoryIds = upstreamIds.Except(knownIds).ToHashSet();
+        var newCategories = upstreamCategories.Where(x => x.Id != null && newCategoryIds.Contains(x.Id)).ToList();
+        
+        account.FilterSettings.AllowedVodCategoryIds = 
+            account.FilterSettings.AllowedVodCategoryIds.Where(x => upstreamIds.Contains(x)).ToList();
+        account.FilterSettings.NotAllowedVodCategoryIds = 
+            account.FilterSettings.NotAllowedVodCategoryIds.Where(x => upstreamIds.Contains(x)).ToList();
+        
+        if (newCategories.Count > 0 || 
+            account.FilterSettings.AllowedVodCategoryIds.Count + account.FilterSettings.NotAllowedVodCategoryIds.Count != knownIds.Count)
+        {
+            _accountService.UpdateAccount(account);
+            _logger.LogInformation("VOD categories refreshed for account {Id}. New: {NewCount}, Removed: {RemovedCount}", 
+                id, newCategories.Count, knownIds.Count - upstreamIds.Count);
+        }
+        
+        return new CategoryRefreshResult { NewCategories = newCategories };
+    }
+    
+    public async Task<CategoryRefreshResult> RefreshSeriesCategoriesAsync(string id, string? username, string? password)
+    {
+        var account = GetAccount(id);
+        var user = !string.IsNullOrEmpty(account.Username) ? account.Username : username;
+        var pass = !string.IsNullOrEmpty(account.Password) ? account.Password : password;
+        
+        if (string.IsNullOrEmpty(user) || string.IsNullOrEmpty(pass))
+            throw new ArgumentException("Username and Password are required.");
+
+        _logger.LogInformation("Refreshing series categories for account {Id}", id);
+        
+        var upstreamCategories = await _xtreamClient.GetSeriesCategories(account.Host, user, pass);
+        var upstreamIds = upstreamCategories.Where(x => x.Id != null).Select(x => x.Id!).ToHashSet();
+        
+        var knownIds = account.FilterSettings.AllowedSeriesCategoryIds
+            .Union(account.FilterSettings.NotAllowedSeriesCategoryIds)
+            .ToHashSet();
+        
+        var newCategoryIds = upstreamIds.Except(knownIds).ToHashSet();
+        var newCategories = upstreamCategories.Where(x => x.Id != null && newCategoryIds.Contains(x.Id)).ToList();
+        
+        account.FilterSettings.AllowedSeriesCategoryIds = 
+            account.FilterSettings.AllowedSeriesCategoryIds.Where(x => upstreamIds.Contains(x)).ToList();
+        account.FilterSettings.NotAllowedSeriesCategoryIds = 
+            account.FilterSettings.NotAllowedSeriesCategoryIds.Where(x => upstreamIds.Contains(x)).ToList();
+        
+        if (newCategories.Count > 0 || 
+            account.FilterSettings.AllowedSeriesCategoryIds.Count + account.FilterSettings.NotAllowedSeriesCategoryIds.Count != knownIds.Count)
+        {
+            _accountService.UpdateAccount(account);
+            _logger.LogInformation("Series categories refreshed for account {Id}. New: {NewCount}, Removed: {RemovedCount}", 
+                id, newCategories.Count, knownIds.Count - upstreamIds.Count);
+        }
+        
+        return new CategoryRefreshResult { NewCategories = newCategories };
+    }
+
+    private static List<Category> ApplyLiveCategoryFilters(List<Category> categories, Account account)
     {
         if (account.FilterSettings.AdultFilter)
             categories = categories.Where(x =>
                 x.Name != null && !x.Name.Contains("adult", StringComparison.InvariantCultureIgnoreCase)).ToList();
-        return categories.Where(x => account.FilterSettings.CategoryFilters.Any(y => x.Name != null && x.Name.Contains(y)))
-            .ToList();
+        
+        if (account.FilterSettings.AllowedLiveCategoryIds.Count == 0)
+            return categories;
+        
+        return categories.Where(x => x.Id != null && account.FilterSettings.AllowedLiveCategoryIds.Contains(x.Id)).ToList();
+    }
+    
+    private static List<Category> ApplyVodCategoryFilters(List<Category> categories, Account account)
+    {
+        if (account.FilterSettings.AdultFilter)
+            categories = categories.Where(x =>
+                x.Name != null && !x.Name.Contains("adult", StringComparison.InvariantCultureIgnoreCase)).ToList();
+        
+        if (account.FilterSettings.AllowedVodCategoryIds.Count == 0)
+            return categories;
+        
+        return categories.Where(x => x.Id != null && account.FilterSettings.AllowedVodCategoryIds.Contains(x.Id)).ToList();
+    }
+    
+    private static List<Category> ApplySeriesCategoryFilters(List<Category> categories, Account account)
+    {
+        if (account.FilterSettings.AdultFilter)
+            categories = categories.Where(x =>
+                x.Name != null && !x.Name.Contains("adult", StringComparison.InvariantCultureIgnoreCase)).ToList();
+        
+        if (account.FilterSettings.AllowedSeriesCategoryIds.Count == 0)
+            return categories;
+        
+        return categories.Where(x => x.Id != null && account.FilterSettings.AllowedSeriesCategoryIds.Contains(x.Id)).ToList();
     }
 
-    private static List<LiveStream> ApplyFilters(List<LiveStream> liveStreams, Account account) => account.FilterSettings.AdultFilter
-        ? liveStreams.Where(x => !IsAdultContent(x.IsAdult) && x.Name != null && !x.Name.Contains("adult", StringComparison.InvariantCultureIgnoreCase)).ToList()
-        : liveStreams;
-    
-    private static List<LiveStream> ApplyFilters(List<LiveStream> liveStreams, List<string> categoryIds, Account account)
+    private static List<LiveStream> ApplyLiveStreamFilters(List<LiveStream> liveStreams, Account account)
     {
-        return account.FilterSettings.AdultFilter
-            ? liveStreams.Where(x =>
-                !IsAdultContent(x.IsAdult) && x.Name != null &&
-                !x.Name.Contains("adult", StringComparison.InvariantCultureIgnoreCase) &&
-                categoryIds.Contains(x.CategoryId)).ToList()
-            : liveStreams.Where(x => categoryIds.Contains(x.CategoryId)).ToList();
+        if (account.FilterSettings.AdultFilter)
+            liveStreams = liveStreams.Where(x => !IsAdultContent(x.IsAdult) && x.Name != null && 
+                !x.Name.Contains("adult", StringComparison.InvariantCultureIgnoreCase)).ToList();
+        
+        return liveStreams;
     }
     
-    private static List<VodStream> ApplyFilters(List<VodStream> vodStreams, List<string> categoryIds, Account account)
+    private static List<LiveStream> ApplyLiveStreamFilters(List<LiveStream> liveStreams, List<string> categoryIds, Account account)
     {
-        return account.FilterSettings.AdultFilter
-            ? vodStreams.Where(x =>
-                !IsAdultContent(x.IsAdult) && x.Name != null &&
-                !x.Name.Contains("adult", StringComparison.InvariantCultureIgnoreCase) &&
-                categoryIds.Contains(x.CategoryId)).ToList()
-            : vodStreams.Where(x => categoryIds.Contains(x.CategoryId)).ToList();
+        if (account.FilterSettings.AdultFilter)
+            liveStreams = liveStreams.Where(x => !IsAdultContent(x.IsAdult) && x.Name != null &&
+                !x.Name.Contains("adult", StringComparison.InvariantCultureIgnoreCase)).ToList();
+        
+        return liveStreams.Where(x => x.CategoryId != null && categoryIds.Contains(x.CategoryId)).ToList();
     }
     
-    private static List<SeriesStream> ApplyFilters(List<SeriesStream> seriesStreams, List<string> categoryIds)
+    private static List<VodStream> ApplyVodStreamFilters(List<VodStream> vodStreams, Account account)
     {
-        return seriesStreams.Where(x => categoryIds.Contains(x.CategoryId)).ToList();
+        if (account.FilterSettings.AdultFilter)
+            vodStreams = vodStreams.Where(x => !IsAdultContent(x.IsAdult) && x.Name != null && 
+                !x.Name.Contains("adult", StringComparison.InvariantCultureIgnoreCase)).ToList();
+        
+        return vodStreams;
     }
-
-    private static List<VodStream> ApplyFilters(List<VodStream> liveStreams, Account account) => account.FilterSettings.AdultFilter
-        ? liveStreams.Where(x => !IsAdultContent(x.IsAdult) && x.Name != null && !x.Name.Contains("adult", StringComparison.InvariantCultureIgnoreCase)).ToList()
-        : liveStreams;
+    
+    private static List<VodStream> ApplyVodStreamFilters(List<VodStream> vodStreams, List<string> categoryIds, Account account)
+    {
+        if (account.FilterSettings.AdultFilter)
+            vodStreams = vodStreams.Where(x => !IsAdultContent(x.IsAdult) && x.Name != null &&
+                !x.Name.Contains("adult", StringComparison.InvariantCultureIgnoreCase)).ToList();
+        
+        return vodStreams.Where(x => x.CategoryId != null && categoryIds.Contains(x.CategoryId)).ToList();
+    }
+    
+    private static List<SeriesStream> ApplySeriesStreamFilters(List<SeriesStream> seriesStreams, List<string> categoryIds)
+    {
+        return seriesStreams.Where(x => x.CategoryId != null && categoryIds.Contains(x.CategoryId)).ToList();
+    }
 
     private static bool IsAdultContent(dynamic? isAdult)
     {

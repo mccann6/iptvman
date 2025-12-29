@@ -1,4 +1,6 @@
-﻿namespace IptvMan.Services;
+﻿using IptvMan.Models;
+
+namespace IptvMan.Services;
 
 public interface IApiService
 {
@@ -10,7 +12,8 @@ public interface IApiService
         string? categoryId,
         string? streamId,
         string? vodId,
-        string? seriesId);
+        string? seriesId,
+        bool? bypassFilters = null);
     
     Task<byte[]> DoEpgApiCall(
         string id,
@@ -30,4 +33,24 @@ public interface IApiService
         string? username,
         string? password,
         string stream);
+    
+    Task InitializeCategoriesAsync(
+        string id,
+        string? username,
+        string? password);
+    
+    Task<CategoryRefreshResult> RefreshLiveCategoriesAsync(
+        string id,
+        string? username,
+        string? password);
+    
+    Task<CategoryRefreshResult> RefreshVodCategoriesAsync(
+        string id,
+        string? username,
+        string? password);
+    
+    Task<CategoryRefreshResult> RefreshSeriesCategoriesAsync(
+        string id,
+        string? username,
+        string? password);
 }

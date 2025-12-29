@@ -1,14 +1,35 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { getAccounts, getHealth, createAccount, updateAccount, deleteAccount } from '$lib/api';
-	import type { Account, HealthResponse } from '$lib/types';
+	import { 
+		getAccounts, 
+		getHealth, 
+		createAccount, 
+		updateAccount, 
+		deleteAccount,
+		initializeCategories,
+		refreshLiveCategories,
+		refreshVodCategories,
+		refreshSeriesCategories,
+		updateLiveCategories,
+		updateVodCategories,
+		updateSeriesCategories,
+		getPlayerCategories
+	} from '$lib/api';
+	import type { Account, HealthResponse, Category, CategoryRefreshResult } from '$lib/types';
 
 	let accounts = $state<Account[]>([]);
 	let health = $state<HealthResponse | null>(null);
 	let loading = $state(true);
 	let error = $state<string | null>(null);
 	let showModal = $state(false);
+	let showCategoryModal = $state(false);
 	let editingAccount = $state<Account | null>(null);
+	let managingAccount = $state<Account | null>(null);
+	let categoryType = $state<'live' | 'vod' | 'series'>('live');
+	let categories = $state<Category[]>([]);
+	let categoryLoading = $state(false);
+	let selectedCategories = $state<Set<string>>(new Set());
+	let refreshResult = $state<CategoryRefreshResult | null>(null);
 
 	// Form state
 	let formData = $state({
@@ -16,8 +37,7 @@
 		host: '',
 		username: '',
 		password: '',
-		adultFilter: false,
-		categoryFilters: ''
+		adultFilter: false
 	});
 
 	onMount(async () => {
@@ -48,8 +68,7 @@
 			host: '',
 			username: '',
 			password: '',
-			adultFilter: false,
-			categoryFilters: ''
+			adultFilter: false
 		};
 		showModal = true;
 	}
@@ -61,8 +80,7 @@
 			host: account.host,
 			username: account.username || '',
 			password: account.password || '',
-			adultFilter: account.filterSettings.adultFilter,
-			categoryFilters: account.filterSettings.categoryFilters.join(', ')
+			adultFilter: account.filterSettings.adultFilter
 		};
 		showModal = true;
 	}
@@ -76,17 +94,26 @@
 				password: formData.password || undefined,
 				filterSettings: {
 					adultFilter: formData.adultFilter,
-					categoryFilters: formData.categoryFilters
-						.split(',')
-						.map(s => s.trim())
-						.filter(s => s.length > 0)
+					allowedLiveCategoryIds: [],
+					notAllowedLiveCategoryIds: [],
+					allowedVodCategoryIds: [],
+					notAllowedVodCategoryIds: [],
+					allowedSeriesCategoryIds: [],
+					notAllowedSeriesCategoryIds: []
 				}
 			};
 
 			if (editingAccount) {
+				// Preserve existing filter settings when editing
+				account.filterSettings = editingAccount.filterSettings;
+				account.filterSettings.adultFilter = formData.adultFilter;
 				await updateAccount(account.id, account);
 			} else {
 				await createAccount(account);
+				// Initialize categories for new account
+				if (account.username && account.password) {
+					await initializeCategories(account.id, account.username, account.password);
+				}
 			}
 
 			showModal = false;
@@ -105,6 +132,114 @@
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Failed to delete account';
 		}
+	}
+
+	async function openCategoryManager(account: Account, type: 'live' | 'vod' | 'series') {
+		managingAccount = account;
+		categoryType = type;
+		categoryLoading = true;
+		showCategoryModal = true;
+		refreshResult = null;
+
+		try {
+			// Fetch categories from player API
+			const action = type === 'live' ? 'get_live_categories' : 
+						   type === 'vod' ? 'get_vod_categories' : 
+						   'get_series_categories';
+			
+			categories = await getPlayerCategories(account.id, action, account.username, account.password);
+			
+			// Set initial selected state based on allowed IDs
+			const allowedIds = type === 'live' ? account.filterSettings.allowedLiveCategoryIds :
+							   type === 'vod' ? account.filterSettings.allowedVodCategoryIds :
+							   account.filterSettings.allowedSeriesCategoryIds;
+			
+			selectedCategories = new Set(allowedIds);
+		} catch (e) {
+			error = e instanceof Error ? e.message : 'Failed to load categories';
+		} finally {
+			categoryLoading = false;
+		}
+	}
+
+	function toggleCategory(categoryId: string) {
+		if (selectedCategories.has(categoryId)) {
+			selectedCategories.delete(categoryId);
+		} else {
+			selectedCategories.add(categoryId);
+		}
+		selectedCategories = selectedCategories; // Trigger reactivity
+	}
+
+	function selectAll() {
+		selectedCategories = new Set(categories.map(c => c.category_id));
+	}
+
+	function deselectAll() {
+		selectedCategories = new Set();
+	}
+
+	async function saveCategories() {
+		if (!managingAccount) return;
+
+		try {
+			const allCategoryIds = new Set(categories.map(c => c.category_id));
+			const allowedIds = Array.from(selectedCategories);
+			const notAllowedIds = Array.from(allCategoryIds).filter(id => !selectedCategories.has(id));
+
+			const request = {
+				allowedCategoryIds: allowedIds,
+				notAllowedCategoryIds: notAllowedIds
+			};
+
+			if (categoryType === 'live') {
+				await updateLiveCategories(managingAccount.id, request);
+			} else if (categoryType === 'vod') {
+				await updateVodCategories(managingAccount.id, request);
+			} else {
+				await updateSeriesCategories(managingAccount.id, request);
+			}
+
+			showCategoryModal = false;
+			await loadData();
+		} catch (e) {
+			error = e instanceof Error ? e.message : 'Failed to save categories';
+		}
+	}
+
+	async function handleRefreshCategories() {
+		if (!managingAccount) return;
+
+		try {
+			categoryLoading = true;
+			
+			if (categoryType === 'live') {
+				refreshResult = await refreshLiveCategories(managingAccount.id, managingAccount.username, managingAccount.password);
+			} else if (categoryType === 'vod') {
+				refreshResult = await refreshVodCategories(managingAccount.id, managingAccount.username, managingAccount.password);
+			} else {
+				refreshResult = await refreshSeriesCategories(managingAccount.id, managingAccount.username, managingAccount.password);
+			}
+
+			// Reload categories
+			const action = categoryType === 'live' ? 'get_live_categories' : 
+						   categoryType === 'vod' ? 'get_vod_categories' : 
+						   'get_series_categories';
+			
+			categories = await getPlayerCategories(managingAccount.id, action, managingAccount.username, managingAccount.password);
+			
+			await loadData();
+		} catch (e) {
+			error = e instanceof Error ? e.message : 'Failed to refresh categories';
+		} finally {
+			categoryLoading = false;
+		}
+	}
+
+	function getCategoryCount(account: Account, type: 'live' | 'vod' | 'series'): number {
+		if (type === 'live') return account.filterSettings.allowedLiveCategoryIds.length;
+		if (type === 'vod') return account.filterSettings.allowedVodCategoryIds.length;
+		return account.filterSettings.allowedSeriesCategoryIds.length;
 	}
 </script>
 
@@ -191,12 +326,34 @@
 									{#if account.filterSettings.adultFilter}
 										<span class="badge badge-sm badge-primary">Adult Filter</span>
 									{/if}
-									{#if account.filterSettings.categoryFilters.length > 0}
-										<span class="badge badge-sm badge-secondary">
-											{account.filterSettings.categoryFilters.length} Categories
-										</span>
-									{/if}
-								</div>
+								{#if getCategoryCount(account, 'live') > 0}
+									<span class="badge badge-sm badge-secondary">
+										Live: {getCategoryCount(account, 'live')}
+									</span>
+								{/if}
+								{#if getCategoryCount(account, 'vod') > 0}
+									<span class="badge badge-sm badge-accent">
+										VOD: {getCategoryCount(account, 'vod')}
+									</span>
+								{/if}
+								{#if getCategoryCount(account, 'series') > 0}
+									<span class="badge badge-sm badge-info">
+										Series: {getCategoryCount(account, 'series')}
+									</span>
+								{/if}
+							</div>
+						</div>
+						<div class="divider my-2"></div>
+						<div class="space-y-2">
+							<button class="btn btn-sm btn-outline w-full" onclick={() => openCategoryManager(account, 'live')}>
+								📺 Manage Live Categories
+							</button>
+							<button class="btn btn-sm btn-outline w-full" onclick={() => openCategoryManager(account, 'vod')}>
+								🎬 Manage VOD Categories
+							</button>
+							<button class="btn btn-sm btn-outline w-full" onclick={() => openCategoryManager(account, 'series')}>
+								📺 Manage Series Categories
+							</button>
 							</div>
 							<div class="card-actions justify-end mt-4">
 								<button class="btn btn-sm btn-ghost" onclick={() => openEditModal(account)}>Edit</button>
@@ -291,23 +448,6 @@
 							<span class="label-text">Enable Adult Content Filter</span>
 						</label>
 					</div>
-
-					<!-- Category Filters -->
-					<div class="form-control">
-						<label class="label" for="categories">
-							<span class="label-text">Category Filters</span>
-						</label>
-						<input
-							id="categories"
-							type="text"
-							placeholder="Sports, Movies, News (comma-separated)"
-							class="input input-bordered"
-							bind:value={formData.categoryFilters}
-						/>
-						<label class="label">
-							<span class="label-text-alt">Comma-separated list of categories to include</span>
-						</label>
-					</div>
 				</div>
 
 				<div class="modal-action">
@@ -319,5 +459,79 @@
 			</form>
 		</div>
 		<div class="modal-backdrop" onclick={() => showModal = false}></div>
+	</div>
+{/if}
+
+<!-- Category Management Modal -->
+{#if showCategoryModal && managingAccount}
+	<div class="modal modal-open">
+		<div class="modal-box max-w-4xl max-h-[90vh]">
+			<h3 class="font-bold text-lg mb-4">
+				Manage {categoryType === 'live' ? 'Live TV' : categoryType === 'vod' ? 'VOD' : 'Series'} Categories - {managingAccount.id}
+			</h3>
+			
+			<!-- Refresh Result Alert -->
+			{#if refreshResult && refreshResult.hasChanges}
+				<div class="alert alert-info mb-4">
+					<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 shrink-0 stroke-current" fill="none" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+					</svg>
+					<span>{refreshResult.newCategories.length} new categories detected!</span>
+				</div>
+			{/if}
+			
+			<!-- Actions Bar -->
+			<div class="flex flex-wrap gap-2 mb-4">
+				<button class="btn btn-sm btn-outline" onclick={handleRefreshCategories} disabled={categoryLoading}>
+					🔄 Refresh from Server
+				</button>
+				<button class="btn btn-sm btn-outline" onclick={selectAll}>
+					✓ Select All
+				</button>
+				<button class="btn btn-sm btn-outline" onclick={deselectAll}>
+					✗ Deselect All
+				</button>
+				<div class="flex-1"></div>
+				<div class="badge badge-lg">
+					{selectedCategories.size} / {categories.length} selected
+				</div>
+			</div>
+			
+			{#if categoryLoading}
+				<div class="flex justify-center items-center h-64">
+					<span class="loading loading-spinner loading-lg"></span>
+				</div>
+			{:else if categories.length === 0}
+				<div class="text-center py-8 text-base-content/60">
+					No categories available
+				</div>
+			{:else}
+				<!-- Category List -->
+				<div class="overflow-y-auto max-h-96 border rounded-lg p-4 space-y-2">
+					{#each categories as category}
+						<label class="flex items-center gap-3 p-3 hover:bg-base-200 rounded-lg cursor-pointer transition-colors">
+							<input
+								type="checkbox"
+								class="checkbox"
+								checked={selectedCategories.has(category.category_id)}
+								onchange={() => toggleCategory(category.category_id)}
+							/>
+							<span class="flex-1">{category.category_name}</span>
+							{#if refreshResult?.newCategories.some(c => c.category_id === category.category_id)}
+								<span class="badge badge-success badge-sm">NEW</span>
+							{/if}
+						</label>
+					{/each}
+				</div>
+			{/if}
+
+			<div class="modal-action">
+				<button type="button" class="btn" onclick={() => showCategoryModal = false}>Cancel</button>
+				<button type="button" class="btn btn-primary" onclick={saveCategories} disabled={categoryLoading}>
+					Save Changes
+				</button>
+			</div>
+		</div>
+		<div class="modal-backdrop" onclick={() => showCategoryModal = false}></div>
 	</div>
 {/if}

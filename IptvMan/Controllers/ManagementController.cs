@@ -8,7 +8,7 @@ namespace IptvMan.Controllers;
 
 [ApiController]
 [Route("api")]
-public class ManagementController(ILiteDatabase db, IMemoryCache cache, IAccountService accountService) : ControllerBase
+public class ManagementController(ILiteDatabase db, IMemoryCache cache, IAccountService accountService, IApiService apiService) : ControllerBase
 {
     private readonly ILiteCollection<FilterSettings> _settings = db.GetCollection<FilterSettings>("settings");
 
@@ -73,7 +73,7 @@ public class ManagementController(ILiteDatabase db, IMemoryCache cache, IAccount
     [HttpPost("filters")]
     public IActionResult SaveFilters(FilterSettings settings)
     {
-        settings.Id = 1; // Ensure singleton ID
+        settings.Id = 1;
         _settings.Upsert(settings);
         return Ok(settings);
     }
@@ -87,5 +87,124 @@ public class ManagementController(ILiteDatabase db, IMemoryCache cache, IAccount
             return Ok("Cache cleared.");
         }
         return BadRequest("Cache type does not support clearing.");
+    }
+    
+    [HttpPost("accounts/{id}/categories/initialize")]
+    public async Task<IActionResult> InitializeCategories(string id, [FromQuery] string? username, [FromQuery] string? password)
+    {
+        try
+        {
+            await apiService.InitializeCategoriesAsync(id, username, password);
+            return Ok("Categories initialized successfully.");
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+    
+    [HttpPost("accounts/{id}/categories/live/refresh")]
+    public async Task<ActionResult<CategoryRefreshResult>> RefreshLiveCategories(string id, [FromQuery] string? username, [FromQuery] string? password)
+    {
+        try
+        {
+            var result = await apiService.RefreshLiveCategoriesAsync(id, username, password);
+            return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+    
+    [HttpPost("accounts/{id}/categories/vod/refresh")]
+    public async Task<ActionResult<CategoryRefreshResult>> RefreshVodCategories(string id, [FromQuery] string? username, [FromQuery] string? password)
+    {
+        try
+        {
+            var result = await apiService.RefreshVodCategoriesAsync(id, username, password);
+            return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+    
+    [HttpPost("accounts/{id}/categories/series/refresh")]
+    public async Task<ActionResult<CategoryRefreshResult>> RefreshSeriesCategories(string id, [FromQuery] string? username, [FromQuery] string? password)
+    {
+        try
+        {
+            var result = await apiService.RefreshSeriesCategoriesAsync(id, username, password);
+            return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+    
+    [HttpPut("accounts/{id}/categories/live")]
+    public IActionResult UpdateLiveCategories(string id, [FromBody] UpdateCategoriesRequest request)
+    {
+        try
+        {
+            var account = accountService.GetAllAccounts().FirstOrDefault(x => x.Id == id);
+            if (account == null)
+                return NotFound("Account not found.");
+            
+            account.FilterSettings.AllowedLiveCategoryIds = request.AllowedCategoryIds;
+            account.FilterSettings.NotAllowedLiveCategoryIds = request.NotAllowedCategoryIds;
+            
+            accountService.UpdateAccount(account);
+            return NoContent();
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+    
+    [HttpPut("accounts/{id}/categories/vod")]
+    public IActionResult UpdateVodCategories(string id, [FromBody] UpdateCategoriesRequest request)
+    {
+        try
+        {
+            var account = accountService.GetAllAccounts().FirstOrDefault(x => x.Id == id);
+            if (account == null)
+                return NotFound("Account not found.");
+            
+            account.FilterSettings.AllowedVodCategoryIds = request.AllowedCategoryIds;
+            account.FilterSettings.NotAllowedVodCategoryIds = request.NotAllowedCategoryIds;
+            
+            accountService.UpdateAccount(account);
+            return NoContent();
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+    
+    [HttpPut("accounts/{id}/categories/series")]
+    public IActionResult UpdateSeriesCategories(string id, [FromBody] UpdateCategoriesRequest request)
+    {
+        try
+        {
+            var account = accountService.GetAllAccounts().FirstOrDefault(x => x.Id == id);
+            if (account == null)
+                return NotFound("Account not found.");
+            
+            account.FilterSettings.AllowedSeriesCategoryIds = request.AllowedCategoryIds;
+            account.FilterSettings.NotAllowedSeriesCategoryIds = request.NotAllowedCategoryIds;
+            
+            accountService.UpdateAccount(account);
+            return NoContent();
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(ex.Message);
+        }
     }
 }
