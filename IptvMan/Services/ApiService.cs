@@ -10,12 +10,14 @@ public class ApiService : IApiService
     private readonly ILogger<ApiService> _logger;
     private readonly IXtreamClient _xtreamClient;
     private readonly IAccountService _accountService;
+    private readonly IChannelMappingService _channelMappingService;
 
-    public ApiService(IXtreamClient xtreamClient, ILogger<ApiService> logger, IAccountService accountService)
+    public ApiService(IXtreamClient xtreamClient, ILogger<ApiService> logger, IAccountService accountService, IChannelMappingService channelMappingService)
     {
         _xtreamClient = xtreamClient;
         _logger = logger;
         _accountService = accountService;
+        _channelMappingService = channelMappingService;
     }
 
     public async Task<string> DoPlayerApiCall(
@@ -27,7 +29,9 @@ public class ApiService : IApiService
         string? streamId,
         string? vodId,
         string? seriesId,
-        bool? bypassFilters = null)
+        bool? bypassFilters = null,
+        int? page = null,
+        int? pageSize = null)
     {
         var account = GetAccount(id);
         var user = !string.IsNullOrEmpty(account.Username) ? account.Username : username;
@@ -43,7 +47,7 @@ public class ApiService : IApiService
         
         return action switch
         {
-            "get_live_streams" => await GetLiveStreams(account, user, pass, categoryId, bypassFilters ?? false),
+            "get_live_streams" => await GetLiveStreams(account, user, pass, categoryId, bypassFilters ?? false, page, pageSize ?? 100),
             "get_live_categories" => await GetLiveCategories(account, user, pass, bypassFilters ?? false),
             "get_vod_categories" => await GetVodCategories(account, user, pass, bypassFilters ?? false),
             "get_series_categories" => await GetSeriesCategories(account, user, pass, bypassFilters ?? false),
@@ -128,22 +132,57 @@ public class ApiService : IApiService
         return JsonSerializer.Serialize(ApplyVodCategoryFilters(response, account));
     }
 
-    private async Task<string> GetLiveStreams(Account account, string username, string password, string? categoryId = null, bool bypassFilters = false)
+    private async Task<string> GetLiveStreams(Account account, string username, string password, string? categoryId = null, bool bypassFilters = false, int? page = null, int pageSize = 100)
     {
         var response = await _xtreamClient.GetLiveStreams(account.Host, username, password, categoryId);
 
-        if (bypassFilters)
-            return JsonSerializer.Serialize(response);
-
-        if (categoryId == null && account.FilterSettings.AllowedLiveCategoryIds.Count != 0)
+        if (!bypassFilters)
         {
-            _logger.LogInformation("Called LiveStreams without categoryId, getting categories to filter by allowed categories");
-            var categories = await _xtreamClient.GetLiveCategories(account.Host, username, password);
-            categories = ApplyLiveCategoryFilters(categories, account);
-            return JsonSerializer.Serialize(ApplyLiveStreamFilters(response, categories.Where(x => x.Id != null).Select(x=>x.Id!).ToList(), account));
+            if (categoryId == null && account.FilterSettings.AllowedLiveCategoryIds.Count != 0)
+            {
+                _logger.LogInformation("Called LiveStreams without categoryId, getting categories to filter by allowed categories");
+                var categories = await _xtreamClient.GetLiveCategories(account.Host, username, password);
+                categories = ApplyLiveCategoryFilters(categories, account);
+                response = ApplyLiveStreamFilters(response, categories.Where(x => x.Id != null).Select(x=>x.Id!).ToList(), account);
+            }
+            else
+            {
+                response = ApplyLiveStreamFilters(response, account);
+            }
+            
+            // Apply channel mappings ONLY when NOT paginating (i.e., for IPTV clients, not management UI)
+            if (!page.HasValue)
+            {
+                response = ApplyChannelMappings(response, account.Id);
+            }
         }
         
-        return JsonSerializer.Serialize(ApplyLiveStreamFilters(response, account));
+        // Only paginate if explicitly requested (for management UI)
+        // IPTV clients expect full array, not paginated response
+        if (page.HasValue)
+        {
+            var totalCount = response.Count;
+            var skip = (page.Value - 1) * pageSize;
+            var paginatedResponse = response.Skip(skip).Take(pageSize).ToList();
+            
+            // Return with pagination metadata
+            var result = new
+            {
+                streams = paginatedResponse,
+                pagination = new
+                {
+                    current_page = page.Value,
+                    page_size = pageSize,
+                    total_items = totalCount,
+                    total_pages = (int)Math.Ceiling(totalCount / (double)pageSize)
+                }
+            };
+            
+            return JsonSerializer.Serialize(result);
+        }
+        
+        // Return full array for backward compatibility with IPTV clients
+        return JsonSerializer.Serialize(response);
     }
     
     private async Task<string> GetLiveCategories(Account account, string username, string password, bool bypassFilters = false)
@@ -477,6 +516,44 @@ public class ApiService : IApiService
     private static List<SeriesStream> ApplySeriesStreamFilters(List<SeriesStream> seriesStreams, List<string> categoryIds)
     {
         return seriesStreams.Where(x => x.CategoryId != null && categoryIds.Contains(x.CategoryId)).ToList();
+    }
+    
+    private List<LiveStream> ApplyChannelMappings(List<LiveStream> streams, string accountId)
+    {
+        var mappings = _channelMappingService.GetMappings(accountId).ToList();
+        if (!mappings.Any()) return streams;
+        
+        var mappingDict = mappings.ToDictionary(m => m.OriginalStreamId, m => m);
+        var result = new List<LiveStream>();
+        
+        foreach (var stream in streams)
+        {
+            var streamId = stream.StreamId.ToString();
+            
+            if (mappingDict.TryGetValue(streamId, out var mapping))
+            {
+                // Skip if hidden
+                if (!mapping.IsVisible) continue;
+                
+                // Apply custom name if set
+                if (!string.IsNullOrEmpty(mapping.CustomName))
+                    stream.Name = mapping.CustomName;
+                
+                // Apply custom group if set  
+                if (!string.IsNullOrEmpty(mapping.CustomGroupName))
+                    stream.CategoryId = mapping.CustomGroupName;
+            }
+            
+            result.Add(stream);
+        }
+        
+        return result.OrderBy(s =>
+        {
+            var streamId = s.StreamId.ToString();
+            if (mappingDict.TryGetValue(streamId, out var mapping))
+                return mapping.SortOrder;
+            return int.MaxValue;
+        }).ToList();
     }
 
     private static bool IsAdultContent(dynamic? isAdult)

@@ -1,4 +1,4 @@
-import type { Account, FilterSettings, HealthResponse, Category, CategoryRefreshResult, UpdateCategoriesRequest } from './types';
+import type { Account, FilterSettings, HealthResponse, Category, CategoryRefreshResult, UpdateCategoriesRequest, LiveStream, ChannelMapping, PaginatedLiveStreamsResponse } from './types';
 
 const API_BASE = '/api';
 
@@ -188,4 +188,79 @@ export async function getPlayerCategories(
 	const response = await fetch(`/${accountId}/player_api.php?${params}`);
 	if (!response.ok) throw new Error('Failed to fetch categories');
 	return response.json();
+}
+
+// Get live streams from player API (for channel management)
+export async function getLiveStreams(
+	accountId: string,
+	username?: string,
+	password?: string,
+	categoryId?: string,
+	page: number = 1,
+	pageSize: number = 100,
+	bypassFilters: boolean = false
+): Promise<PaginatedLiveStreamsResponse> {
+	const params = new URLSearchParams({ 
+		action: 'get_live_streams', 
+		bypass_filters: bypassFilters.toString(),
+		page: page.toString(),
+		page_size: pageSize.toString()
+	});
+	if (username) params.append('username', username);
+	if (password) params.append('password', password);
+	if (categoryId) params.append('category_id', categoryId);
+	
+	const response = await fetch(`/${accountId}/player_api.php?${params}`);
+	if (!response.ok) throw new Error('Failed to fetch live streams');
+	return response.json();
+}
+
+// Channel Mapping Functions
+export async function getChannelMappings(accountId: string): Promise<ChannelMapping[]> {
+	const response = await fetch(`${API_BASE}/accounts/${accountId}/channels/mappings`);
+	if (!response.ok) throw new Error('Failed to fetch channel mappings');
+	return response.json();
+}
+
+export async function createChannelMapping(
+	accountId: string,
+	mapping: ChannelMapping
+): Promise<ChannelMapping> {
+	const response = await fetch(`${API_BASE}/accounts/${accountId}/channels/mappings`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(mapping)
+	});
+	if (!response.ok) throw new Error('Failed to create channel mapping');
+	return response.json();
+}
+
+export async function updateChannelMapping(
+	accountId: string,
+	mappingId: number,
+	mapping: ChannelMapping
+): Promise<void> {
+	const response = await fetch(`${API_BASE}/accounts/${accountId}/channels/mappings/${mappingId}`, {
+		method: 'PUT',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(mapping)
+	});
+	if (!response.ok) throw new Error('Failed to update channel mapping');
+}
+
+export async function deleteChannelMapping(
+	accountId: string,
+	mappingId: number
+): Promise<void> {
+	const response = await fetch(`${API_BASE}/accounts/${accountId}/channels/mappings/${mappingId}`, {
+		method: 'DELETE'
+	});
+	if (!response.ok) throw new Error('Failed to delete channel mapping');
+}
+
+export async function deleteAllChannelMappings(accountId: string): Promise<void> {
+	const response = await fetch(`${API_BASE}/accounts/${accountId}/channels/mappings`, {
+		method: 'DELETE'
+	});
+	if (!response.ok) throw new Error('Failed to delete all channel mappings');
 }

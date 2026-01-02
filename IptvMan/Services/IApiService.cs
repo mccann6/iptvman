@@ -13,7 +13,9 @@ public interface IApiService
         string? streamId,
         string? vodId,
         string? seriesId,
-        bool? bypassFilters = null);
+        bool? bypassFilters = null,
+        int? page = null,
+        int? pageSize = null);
     
     Task<byte[]> DoEpgApiCall(
         string id,

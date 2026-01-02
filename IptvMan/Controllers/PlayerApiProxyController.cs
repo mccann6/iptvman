@@ -17,11 +17,13 @@ public class PlayerApiProxyController(IApiService apiService, ILogger<PlayerApiP
         [FromQuery] string stream_id=null,
         [FromQuery] string vod_id=null,
         [FromQuery] string series_id=null,
-        [FromQuery] bool? bypass_filters=null)
+        [FromQuery] bool? bypass_filters=null,
+        [FromQuery] int? page=null,
+        [FromQuery] int? page_size=null)
     {
         try
         {
-            var response = await apiService.DoPlayerApiCall(id, action, username, password, category_id, stream_id, vod_id, series_id, bypass_filters);
+            var response = await apiService.DoPlayerApiCall(id, action, username, password, category_id, stream_id, vod_id, series_id, bypass_filters, page, page_size);
             return Ok(response);
         }
         catch (Exception ex)

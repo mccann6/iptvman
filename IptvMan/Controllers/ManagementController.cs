@@ -8,7 +8,7 @@ namespace IptvMan.Controllers;
 
 [ApiController]
 [Route("api")]
-public class ManagementController(ILiteDatabase db, IMemoryCache cache, IAccountService accountService, IApiService apiService) : ControllerBase
+public class ManagementController(ILiteDatabase db, IMemoryCache cache, IAccountService accountService, IApiService apiService, IChannelMappingService channelMappingService) : ControllerBase
 {
     private readonly ILiteCollection<FilterSettings> _settings = db.GetCollection<FilterSettings>("settings");
 
@@ -207,4 +207,98 @@ public class ManagementController(ILiteDatabase db, IMemoryCache cache, IAccount
             return BadRequest(ex.Message);
         }
     }
+    
+    // Channel Mapping Endpoints
+    [HttpGet("accounts/{id}/channels/mappings")]
+    public ActionResult<IEnumerable<ChannelMapping>> GetChannelMappings(string id)
+    {
+        try
+        {
+            var mappings = channelMappingService.GetMappings(id);
+            return Ok(mappings);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+    
+    [HttpPost("accounts/{id}/channels/mappings")]
+    public IActionResult AddChannelMapping(string id, [FromBody] ChannelMapping mapping)
+    {
+        try
+        {
+            mapping.AccountId = id;
+            channelMappingService.AddMapping(mapping);
+            
+            // Invalidate cache so IPTV clients get updated data immediately
+            cache.Remove($"player_api_{id}");
+            
+            return CreatedAtAction(nameof(GetChannelMappings), new { id }, mapping);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+    
+    [HttpPut("accounts/{id}/channels/mappings/{mappingId}")]
+    public IActionResult UpdateChannelMapping(string id, string mappingId, [FromBody] ChannelMapping mapping)
+    {
+        try
+        {
+            mapping.Id = mappingId;
+            mapping.AccountId = id;
+            
+            if (!channelMappingService.UpdateMapping(mapping))
+                return NotFound("Mapping not found.");
+            
+            // Invalidate cache so IPTV clients get updated data immediately
+            cache.Remove($"player_api_{id}");
+            
+            return NoContent();
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+    
+    [HttpDelete("accounts/{id}/channels/mappings/{mappingId}")]
+    public IActionResult DeleteChannelMapping(string id, string mappingId)
+    {
+        try
+        {
+            if (!channelMappingService.DeleteMapping(mappingId))
+                return NotFound("Mapping not found.");
+            
+            // Invalidate cache so IPTV clients get updated data immediately
+            cache.Remove($"player_api_{id}");
+            
+            return NoContent();
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+    
+    [HttpDelete("accounts/{id}/channels/mappings")]
+    public IActionResult DeleteAllChannelMappings(string id)
+    {
+        try
+        {
+            channelMappingService.DeleteAllMappings(id);
+            
+            // Invalidate cache so IPTV clients get updated data immediately
+            cache.Remove($"player_api_{id}");
+            
+            return NoContent();
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
 }
+

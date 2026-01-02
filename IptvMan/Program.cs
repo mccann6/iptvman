@@ -21,6 +21,7 @@ public class Program
         builder.Services.AddSingleton<IApiService, ApiService>();
         builder.Services.AddSingleton<IXtreamClient, XtreamClient>();
         builder.Services.AddSingleton<IAccountService, AccountService>();
+        builder.Services.AddSingleton<IChannelMappingService, ChannelMappingService>();
 
         builder.Services.AddSingleton<ILiteDatabase>(new LiteDatabase(Configuration.DatabasePath));
         
