@@ -17,20 +17,20 @@ A simple IPTV proxy with filtering, caching, and a web-based management UI.
 Pull and run the latest image:
 ```bash
 docker pull anthonymccann90/iptvman
-docker run -p 8080:8080 anthonymccann90/iptvman
+docker run -p 4050:4050 anthonymccann90/iptvman
 ```
 
 Or build from source:
 ```bash
 docker build -t iptvman .
-docker run -p 8080:8080 iptvman
+docker run -p 4050:4050 iptvman
 ```
 
 Access the management UI at `http://localhost:8080`
 
 ### Configuration
 
-1. Open `http://localhost:8080` in your browser
+1. Open `http://localhost:4050` in your browser
 2. Click "Add Account" to create a new IPTV provider account
 3. Configure filters by clicking "Manage Categories" for each stream type
 4. Toggle adult filter as needed
@@ -46,7 +46,7 @@ ENV M3U_TIME="720"         # M3U cache time in minutes (default: 720)
 ## Usage
 
 Once configured, your accounts are available at:
-- **Host**: `http://localhost:8080/AccountName`
+- **Host**: `http://localhost:4050/AccountName`
 - **Username**: Your Account Username
 - **Password**: Your Account Password
 
