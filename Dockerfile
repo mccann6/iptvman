@@ -24,7 +24,9 @@ RUN dotnet publish "IptvMan.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:U
 # Stage 4: Final Runtime Image
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
 WORKDIR /app
-EXPOSE 8080
+
+ENV ASPNETCORE_HTTP_PORTS=4050
+EXPOSE 4050
 
 # Copy backend
 COPY --from=publish /app/publish .

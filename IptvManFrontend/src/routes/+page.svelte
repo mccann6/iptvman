@@ -909,8 +909,6 @@
 								<th class="w-20">ID</th>
 								<th>Channel Name</th>
 								<th>Custom Name</th>
-								<th>Original Group</th>
-								<th>Custom Group</th>
 								<th class="w-24">Sort Order</th>
 								<th class="w-32">Actions</th>
 							</tr>
@@ -960,23 +958,6 @@
 											}}
 										/>
 									</td>
-									
-									<!-- Original Group -->
-									<td class="max-w-xs truncate text-xs opacity-60" title={stream.category_id}>
-										{stream.category_id || 'N/A'}
-									</td>
-									
-									<!-- Custom Group Input -->
-									<td>
-										<input
-											type="text"
-											class="input input-xs input-bordered w-full"
-											placeholder="Custom group..."
-											value={editedMapping.customGroupName || ''}
-											oninput={(e) => updateEditingChannel(stream.stream_id, { customGroupName: e.currentTarget.value })}
-										/>
-									</td>
-									
 									<!-- Sort Order Input -->
 									<td>
 										<input

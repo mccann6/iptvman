@@ -60,7 +60,6 @@ export interface ChannelMapping {
 	accountId: string;
 	originalStreamId: string;
 	customName?: string;
-	customGroupName?: string;
 	isVisible: boolean;
 	sortOrder: number;
 	channelNumber?: number;

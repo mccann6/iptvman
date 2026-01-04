@@ -538,10 +538,6 @@ public class ApiService : IApiService
                 // Apply custom name if set
                 if (!string.IsNullOrEmpty(mapping.CustomName))
                     stream.Name = mapping.CustomName;
-                
-                // Apply custom group if set  
-                if (!string.IsNullOrEmpty(mapping.CustomGroupName))
-                    stream.CategoryId = mapping.CustomGroupName;
             }
             
             result.Add(stream);
