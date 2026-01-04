@@ -17,7 +17,7 @@ public class VodStream
     [JsonPropertyName("rating")]
     public string? Rating { get; set; }
     [JsonPropertyName("rating_5based")]
-    public double Rating5Based { get; set; }
+    public dynamic? Rating5Based { get; set; }
     [JsonPropertyName("added")]
     public string? Added { get; set; }
     [JsonPropertyName("is_adult")]

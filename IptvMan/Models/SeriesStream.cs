@@ -27,7 +27,7 @@ public class SeriesStream
     [JsonPropertyName("rating")]
     public string? Rating { get; set; }
     [JsonPropertyName("rating_5based")]
-    public double Rating5Based { get; set; }
+    public dynamic? Rating5Based { get; set; }
     [JsonPropertyName("backdrop_path")]
     public dynamic? BackdropPath { get; set; }
     [JsonPropertyName("youtube_trailer")]
