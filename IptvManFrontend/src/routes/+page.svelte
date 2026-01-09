@@ -458,24 +458,65 @@
         }
     });
 
-    // Copy account URL to clipboard
+    // Copy account URL to clipboard with fallback for non-HTTPS
     async function copyAccountUrl(accountId: string) {
         const url = `${window.location.origin}/${accountId}`;
+        
+        // Try modern Clipboard API first (requires HTTPS or localhost)
+        if (navigator.clipboard && window.isSecureContext) {
+            try {
+                await navigator.clipboard.writeText(url);
+                return;
+            } catch (e) {
+                console.error('Clipboard API failed:', e);
+            }
+        }
+        
+        // Fallback for non-secure contexts (HTTP on local network)
         try {
-            await navigator.clipboard.writeText(url);
-            // Could show a toast notification here
+            const textArea = document.createElement('textarea');
+            textArea.value = url;
+            textArea.style.position = 'fixed';
+            textArea.style.left = '-999999px';
+            textArea.style.top = '-999999px';
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            document.execCommand('copy');
+            textArea.remove();
         } catch (e) {
-            console.error('Failed to copy:', e);
+            console.error('Fallback copy failed:', e);
+            alert(`Copy failed. Please copy manually:\n${url}`);
         }
     }
 
-    // Generic copy to clipboard function
+    // Generic copy to clipboard function with fallback for non-HTTPS
     async function copyToClipboard(text: string) {
+        // Try modern Clipboard API first (requires HTTPS or localhost)
+        if (navigator.clipboard && window.isSecureContext) {
+            try {
+                await navigator.clipboard.writeText(text);
+                return;
+            } catch (e) {
+                console.error('Clipboard API failed:', e);
+            }
+        }
+        
+        // Fallback for non-secure contexts (HTTP on local network)
         try {
-            await navigator.clipboard.writeText(text);
-            // Could show a toast notification here
+            const textArea = document.createElement('textarea');
+            textArea.value = text;
+            textArea.style.position = 'fixed';
+            textArea.style.left = '-999999px';
+            textArea.style.top = '-999999px';
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            document.execCommand('copy');
+            textArea.remove();
         } catch (e) {
-            console.error('Failed to copy:', e);
+            console.error('Fallback copy failed:', e);
+            alert(`Copy failed. Please copy manually:\n${text}`);
         }
     }
 </script>

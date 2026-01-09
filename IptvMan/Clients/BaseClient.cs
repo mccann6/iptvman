@@ -39,21 +39,21 @@ public class BaseClient(HttpClient httpClient, IMemoryCache memoryCache)
     
     protected async Task<T> DoCachedHttpCall<T>(string baseUri, string resource)
     {
-        if (memoryCache.TryGetValue(resource, out byte[] compressedJson))
+        // Use full URL as cache key to prevent collisions between different hosts using same credentials
+        var cacheKey = $"{baseUri}{resource}";
+
+        if (memoryCache.TryGetValue<byte[]>(cacheKey, out var compressedJson) && compressedJson != null)
         {
-            if (compressedJson != null)
-            {
-                var jsonString = DecompressString(compressedJson);
-                return JsonSerializer.Deserialize<T>(jsonString);
-            }
+            var jsonString = DecompressString(compressedJson);
+            return JsonSerializer.Deserialize<T>(jsonString)!;
         }
         
         var apiResponse = await DoHttpCall(baseUri, resource);
         
         var compressed = CompressString(apiResponse);
-        memoryCache.Set(resource, compressed, TimeSpan.FromMinutes(_cacheExpirationMinutes));
+        memoryCache.Set(cacheKey, compressed, TimeSpan.FromMinutes(_cacheExpirationMinutes));
         
-        return JsonSerializer.Deserialize<T>(apiResponse);
+        return JsonSerializer.Deserialize<T>(apiResponse)!;
     }
     
     protected Task<byte[]> DoHttpGetBytes(string requestUrl)
